@@ -1,0 +1,109 @@
+#STEP 1: install ubuntu 16.04 (working as of 13/9/2016)*day first
+
+#STEP 2: install nvdia drivers * nouveau driver is now automatically blacklisted
+sudo apt-add-repository ppa:graphics-drivers/ppa -y
+sudo apt-get update
+sudo apt-get install nvidia-367 # check ppa to see most recent version
+sudo apt-add-repository -r ppa:graphics-drivers/ppa -y
+
+#STEP 3: install scipy stack and important packages* avoid anaconda, it messes up python path
+sudo apt-get install python-numpy python-scipy python-matplotlib ipython ipython-notebook python-pandas python-sympy python-nose spyder python-pip
+
+#STEP 4: install CUDA and cuDNN
+
+#download cuda 8.0 .deb from nvidia developer center
+cd Downloads
+sudo dpkg -i cuda-repo-ubuntu1604-8-0-rc_8.0.27-1_amd64.deb
+sudo apt-get update
+sudo apt-get install cuda
+cd ~
+export CUDA_HOME=/usr/local/cuda-8.0
+export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
+PATH=${CUDA_HOME}/bin:${PATH}
+export PATH
+
+#download cuDNN from nvidia developer center and extract it
+cd Downloads/cuda
+sudo cp -P include/cudnn.h /usr/local/cuda/include
+sudo cp -P lib64/libcudnn* /usr/local/cuda/lib64/
+sudo chmod a+r /usr/local/cuda/lib64/libcudnn*
+
+#STEP 5: install openCV 3.1.0
+
+#Update Repositories
+sudo apt update -y && sudo apt upgrade
+#Build tools
+sudo apt install build-essential cmake 
+#Multimedia
+sudo apt install libjpeg-dev libpng-dev libtiff5-dev libjasper-dev libgdal-dev zlib1g-dev libwebp-dev  libv4l-dev libxine2-dev libopencore-amrnb-dev libopencore-amrwb-dev x264 libx264-dev yasm libxvidcore-dev libvorbis-dev libtheora-dev libswscale-dev libavformat-dev libavcodec-dev libdc1394-22-dev libgstreamer-plugins-base0.10-dev libgstreamer0.10-dev libfaac-dev ffmpeg
+#Parallel frameworks
+sudo apt install libtbb2 libtbb2-dbg libtbb-dev libpomp2-dev
+#Python Support
+sudo apt install python-dev python-tk python-numpy python3-dev python3-tk python3-numpy
+#Extras
+sudo apt install libeigen3-dev doxygen libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev qt5-default libatlas-base-dev gfortran
+sudo apt-get install --assume-yes libopencv-dev build-essential cmake git libgtk2.0-dev pkg-config python-dev python-numpy libdc1394-22 libdc1394-22-dev libjpeg-dev libpng12-dev libtiff5-dev libjasper-dev libavcodec-dev libavformat-dev libswscale-dev libxine2-dev libgstreamer0.10-dev libgstreamer-plugins-base0.10-dev libv4l-dev libtbb-dev libqt4-dev libfaac-dev libmp3lame-dev libopencore-amrnb-dev libopencore-amrwb-dev libtheora-dev libvorbis-dev libxvidcore-dev x264 v4l-utils unzip
+
+#Add comment on host_config.h line 115 to prevent crash due to gcc version
+sudo gedit /usr/local/cuda/include/host_config.h
+
+#Replace thrust on cuda folder with the one on the github repository
+git clone https://github.com/thrust/thrust
+cd thrust
+sudo rm -r /usr/local/cuda/include/thrust
+sudo mv thrust /usr/local/cuda/include/
+
+#Build and make
+cd ~
+git clone https://github.com/opencv/opencv
+cd opencv
+mkdir build
+cd build
+cmake -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local -D WITH_TBB=ON -D WITH_V4L=ON -D WITH_QT=ON -D WITH_OPENGL=ON -DCUDA_NVCC_FLAGS="-D_FORCE_INLINES" ..
+	
+make -j9
+sudo make install
+sudo ldconfig
+
+#STEP 6: install caffe
+
+#Install required packages
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get install libopenblas-dev git unzip
+sudo apt-get install libboost-all-dev
+sudo apt-get install libprotobuf-dev libleveldb-dev libsnappy-dev libopencv-dev libboost-all-dev libhdf5-serial-dev
+sudo apt-get install libgflags-dev libgoogle-glog-dev liblmdb-dev protobuf-compiler
+
+#Download caffe
+git clone https://github.com/BVLC/caffe
+cd caffe
+cp Makefile.config.example Makefile.config
+sudo apt-get install kate
+kate ./Makefile.config &
+#check makefile_template for directions
+
+#Extra commands
+find . -type f -exec sed -i -e 's^"hdf5.h"^"hdf5/serial/hdf5.h"^g' -e 's^"hdf5_hl.h"^"hdf5/serial/hdf5_hl.h"^g' '{}' \;
+cd /usr/lib/x86_64-linux-gnu
+sudo ln -s libhdf5_serial.so.10.1.0 libhdf5.so
+sudo ln -s libhdf5_serial_hl.so.10.0.2 libhdf5_hl.so 
+
+#Python packages
+cd ~/caffe/python
+for req in $(cat requirements.txt); do pip install $req; done
+
+#Install caffe
+cd ~/caffe
+make clean
+make all -j9
+make test -j9
+make runtest -j9
+make pycaffe -j9
+make distribute -j9
+
+cd ~
+sudo gedit .bashrc
+#add the following line at the end to allow importing in python
+export PYTHONPATH=/path/to/caffe-master/python:$PYTHONPATH
+
